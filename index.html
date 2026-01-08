@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Natality Strata | Global Birth Rate Analysis</title>
+    <link rel="icon" type="image/svg+xml" href="birth_rate.svg">
     
     <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -117,9 +118,18 @@
             letter-spacing: 0.15em;
             text-transform: uppercase;
             color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        .logo span {
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+        }
+
+        .logo-text span {
             font-weight: 300;
             opacity: 0.4;
             margin-left: 8px;
@@ -810,7 +820,10 @@
     <div class="ambient-glow glow-2"></div>
 
     <header>
-        <div class="logo">Global Birth Rate<span>World Bank Data · 1960-2023</span></div>
+        <div class="logo">
+            <img src="birth_rate.svg" alt="Birth Rate Icon" class="logo-icon">
+            <div class="logo-text">Global Birth Rate<span>World Bank Data · 1960-2023</span></div>
+        </div>
         <nav class="nav-group">
             <button class="nav-btn active" onclick="setDark()">Dark</button>
             <button class="nav-btn" onclick="setLight()">Light</button>
