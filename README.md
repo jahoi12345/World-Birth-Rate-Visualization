@@ -2,6 +2,10 @@
 
 An interactive data visualization dashboard displaying global birth rate trends from 1960 to 2023, using World Bank demographic data.
 
+## Live Demo
+
+https://jahoi12345.github.io/World-Birth-Rate-Visualization/
+
 ## Features
 
 - **Interactive Choropleth Map**: Color-coded world map showing crude birth rates by country
@@ -27,7 +31,7 @@ Birth rate data is fetched in real-time from the World Bank API:
 
 ## Usage
 
-Open `world-birth_rate_analysis.html` in a web browser. The application will automatically fetch data from the World Bank API.
+Visit the live demo link above, or open `index.html` locally in a web browser. The application will automatically fetch data from the World Bank API.
 
 ### Controls
 
