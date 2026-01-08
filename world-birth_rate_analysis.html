@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natality Strata | Global Birth Rate Analysis</title>
+    
+    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #0a0b0d;
+            --bg-elevated: #0f1012;
+            --vellum-white: rgba(245, 245, 240, 0.06);
+            --vellum-border: rgba(255, 255, 255, 0.08);
+            --accent-hot: #f5576c;
+            --accent-warm: #f093fb;
+            --accent-cold: #4facfe;
+            --accent-glow: rgba(245, 87, 108, 0.4);
+            --text-primary: #e8e8e8;
+            --text-secondary: #6b7280;
+            --text-muted: #4b5563;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Inter', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            font-family: var(--sans);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Grain Filter Overlay */
+        .grain {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.03;
+        }
+
+        /* Ambient Background Glow */
+        .ambient-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(120px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glow-1 {
+            top: -200px;
+            right: -100px;
+            background: radial-gradient(circle, rgba(245, 87, 108, 0.15) 0%, transparent 70%);
+        }
+
+        .glow-2 {
+            bottom: -200px;
+            left: -100px;
+            background: radial-gradient(circle, rgba(79, 172, 254, 0.1) 0%, transparent 70%);
+        }
+
+        /* Vellum Sheet System */
+        .vellum-sheet {
+            background: var(--vellum-white);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid var(--vellum-border);
+            border-radius: 3px;
+            position: relative;
+            box-shadow: 
+                0 10px 40px rgba(0,0,0,0.4),
+                inset 0 0 0 1px rgba(255,255,255,0.03);
+            overflow: hidden;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .vellum-sheet::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        /* Header */
+        header {
+            padding: 30px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 20;
+            border-bottom: 1px solid var(--vellum-border);
+        }
+
+        .logo {
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-primary);
+        }
+
+        .logo span {
+            font-weight: 300;
+            opacity: 0.4;
+            margin-left: 8px;
+            font-size: 0.9rem;
+        }
+
+        .nav-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            font-weight: 500;
+            padding: 8px 16px;
+            background: transparent;
+            border: 1px solid var(--vellum-border);
+            border-radius: 2px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .nav-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--accent-hot);
+            background: rgba(245, 87, 108, 0.1);
+        }
+
+        .nav-btn.active {
+            color: var(--accent-hot);
+            border-color: var(--accent-hot);
+            background: rgba(245, 87, 108, 0.15);
+        }
+
+        .coordinates {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--accent-hot);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: 20px;
+        }
+
+        /* Main Layout */
+        .strata-container {
+            position: relative;
+            padding: 30px 50px;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            z-index: 10;
+            min-height: calc(100vh - 200px);
+        }
+
+        /* Map Viewport */
+        .map-viewport {
+            position: relative;
+            min-height: 500px;
+            background: radial-gradient(ellipse at 50% 50%, #12141a 0%, #0a0b0d 100%);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--vellum-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .map-title {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--accent-hot);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .map-title::before {
+            content: '';
+            width: 20px;
+            height: 1px;
+            background: var(--accent-hot);
+        }
+
+        .map-stats {
+            font-family: var(--mono);
+            font-size: 0.6rem;
+            color: var(--text-muted);
+        }
+
+        #map {
+            flex: 1;
+            min-height: 400px;
+        }
+
+        /* Data Labels on Map */
+        .data-strata {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .hotspot {
+            position: absolute;
+            width: 6px; height: 6px;
+            background: var(--accent-hot);
+            border-radius: 50%;
+            box-shadow: 0 0 20px var(--accent-hot);
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.3); opacity: 1; }
+        }
+
+        .region-label {
+            position: absolute;
+            font-family: var(--mono);
+            font-size: 0.6rem;
+            color: white;
+            padding: 5px 10px;
+            background: rgba(0,0,0,0.85);
+            border-left: 2px solid var(--accent-hot);
+            transform: translate(12px, -12px);
+            white-space: nowrap;
+            letter-spacing: 0.05em;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .insight-card {
+            padding: 25px;
+        }
+
+        .card-title {
+            font-size: 0.65rem;
+            font-family: var(--mono);
+            color: var(--accent-hot);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .card-title::before {
+            content: '';
+            width: 15px;
+            height: 1px;
+            background: var(--accent-hot);
+        }
+
+        .big-number {
+            font-size: 3.2rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 8px;
+            background: linear-gradient(to bottom, #fff 0%, #666 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .big-number-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 300;
+            margin-bottom: 15px;
+        }
+
+        .description {
+            font-size: 0.8rem;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+
+        /* Data Table Card */
+        .table-card {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            min-height: 350px;
+            max-height: 500px;
+        }
+
+        .table-container {
+            padding: 0 25px 25px;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-height: 320px;
+        }
+
+        /* Average Banner */
+        #avgBanner {
+            padding: 15px 25px;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--vellum-border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #avgBanner .avg-value {
+            color: var(--accent-hot);
+            font-weight: 600;
+        }
+
+        /* DataTables Styling */
+        .dataTables_wrapper {
+            font-family: var(--sans);
+        }
+
+        .dataTables_wrapper .top {
+            padding: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .dataTables_wrapper .dataTables_length label,
+        .dataTables_wrapper .dataTables_filter label {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .dataTables_wrapper .dataTables_length select,
+        .dataTables_wrapper .dataTables_filter input {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--vellum-border);
+            border-radius: 2px;
+            padding: 6px 10px;
+            color: var(--text-primary);
+            font-family: var(--mono);
+            font-size: 0.7rem;
+        }
+
+        .dataTables_wrapper .dataTables_filter input:focus {
+            outline: none;
+            border-color: var(--accent-hot);
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            font-family: var(--mono);
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            padding: 10px 0;
+        }
+
+        .dataTables_wrapper .dataTables_paginate {
+            padding: 10px 0;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            padding: 5px 10px;
+            margin: 0 3px;
+            border-radius: 2px;
+            color: var(--text-muted) !important;
+            background: transparent;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover:not(.disabled) {
+            color: var(--text-primary) !important;
+            background: rgba(255,255,255,0.05);
+            border-color: var(--vellum-border);
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            color: var(--accent-hot) !important;
+            background: rgba(245, 87, 108, 0.1);
+            border-color: var(--accent-hot);
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
+            opacity: 0.3;
+        }
+
+        table.dataTable {
+            background: transparent;
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+        }
+
+        table.dataTable thead th {
+            background: transparent;
+            border-bottom: 1px solid var(--vellum-border);
+            padding: 10px 8px;
+            font-family: var(--mono);
+            font-size: 0.6rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        table.dataTable tbody td {
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            padding: 10px 8px;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            font-weight: 300;
+        }
+
+        table.dataTable tbody tr {
+            transition: background 0.2s;
+        }
+
+        table.dataTable tbody tr:hover {
+            background: rgba(245, 87, 108, 0.05);
+        }
+
+        table.dataTable tbody tr.selectedRow {
+            background: rgba(245, 87, 108, 0.15) !important;
+        }
+
+        table.dataTable th:nth-child(1), 
+        table.dataTable td:nth-child(1) { 
+            width: 35px; 
+            text-align: center; 
+        }
+        table.dataTable th:nth-child(2), 
+        table.dataTable td:nth-child(2) { 
+            width: 45px;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        table.dataTable th:nth-child(4), 
+        table.dataTable td:nth-child(4) { 
+            width: 70px; 
+            text-align: right;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+        }
+        table.dataTable th:nth-child(5), 
+        table.dataTable td:nth-child(5) { 
+            width: 70px; 
+            text-align: right;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+        }
+
+        .country-checkbox,
+        #selectAllCheckbox {
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent-hot);
+        }
+
+        .delta-positive {
+            color: var(--accent-hot);
+        }
+
+        .delta-negative {
+            color: var(--accent-cold);
+        }
+
+        .filter-selected-btn {
+            font-family: var(--mono);
+            font-size: 0.6rem;
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--vellum-border);
+            border-radius: 2px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: 8px;
+        }
+
+        .filter-selected-btn:hover {
+            border-color: var(--accent-hot);
+            color: var(--text-primary);
+        }
+
+        .filter-selected-btn.active {
+            background: rgba(245, 87, 108, 0.15);
+            border-color: var(--accent-hot);
+            color: var(--accent-hot);
+        }
+
+        /* DataTables filter area */
+        .dataTables_wrapper .dataTables_filter {
+            display: inline-flex !important;
+            align-items: center;
+        }
+
+        /* Timeline Footer */
+        .timeline-footer {
+            padding: 0 50px 30px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .timeline {
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .year-mark {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            padding: 5px 0;
+        }
+
+        .year-mark:hover {
+            color: var(--text-primary);
+        }
+
+        .year-mark.active {
+            color: var(--accent-hot);
+        }
+
+        .year-mark.active::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            background: var(--accent-hot);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-hot);
+        }
+
+        .slider-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .slider-track {
+            flex: 1;
+            height: 1px;
+            background: var(--vellum-border);
+            position: relative;
+        }
+
+        #yearSlider {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+            transition: none;
+        }
+
+        #yearSlider.animating {
+            pointer-events: none;
+        }
+
+        #yearSlider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, var(--accent-cold), var(--accent-hot));
+            border-radius: 1px;
+        }
+
+        #yearSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: white;
+            border-radius: 50%;
+            margin-top: -6px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+            transition: transform 0.2s;
+        }
+
+        #yearSlider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        #yearSlider::-moz-range-track {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, var(--accent-cold), var(--accent-hot));
+            border-radius: 1px;
+        }
+
+        #yearSlider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+
+        .year-display {
+            font-family: var(--mono);
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .age-display {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        /* Play Button */
+        .play-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-hot), var(--accent-warm));
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(245, 87, 108, 0.4);
+            flex-shrink: 0;
+        }
+
+        .play-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(245, 87, 108, 0.6);
+        }
+
+        .play-btn.playing {
+            background: linear-gradient(135deg, var(--accent-cold), #00f2fe);
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.4);
+        }
+
+        .play-btn.playing:hover {
+            box-shadow: 0 0 30px rgba(79, 172, 254, 0.6);
+        }
+
+        .play-btn svg {
+            width: 16px;
+            height: 16px;
+            color: white;
+        }
+
+        .play-btn .play-icon {
+            margin-left: 2px;
+        }
+
+        /* Definition Section */
+        .definition-card {
+            padding: 20px 25px;
+            border-top: 1px solid var(--vellum-border);
+            margin-top: auto;
+        }
+
+        .definition-title {
+            font-family: var(--mono);
+            font-size: 0.6rem;
+            color: var(--accent-cold);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 10px;
+        }
+
+        .definition-text {
+            font-size: 0.75rem;
+            line-height: 1.7;
+            color: var(--text-muted);
+            font-weight: 300;
+        }
+
+        .formula {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 2px;
+            margin-top: 10px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--vellum-border); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .strata-container {
+                grid-template-columns: 1fr;
+                padding: 20px;
+            }
+            
+            .sidebar {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            
+            .insight-card {
+                flex: 1;
+                min-width: 280px;
+            }
+            
+            header {
+                padding: 20px;
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+            
+            .timeline-footer {
+                padding: 0 20px 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .timeline {
+                flex-wrap: wrap;
+            }
+            
+            .year-mark {
+                display: none;
+            }
+            
+            .year-mark.active {
+                display: block;
+            }
+            
+            .slider-container {
+                width: 100%;
+                order: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Grain Overlay -->
+    <svg class="grain">
+        <filter id="noise">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noise)" />
+    </svg>
+
+    <!-- Ambient Glows -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <header>
+        <div class="logo">Global Birth Rate<span>World Bank Data · 1960-2023</span></div>
+        <nav class="nav-group">
+            <button class="nav-btn active" onclick="setDark()">Dark</button>
+            <button class="nav-btn" onclick="setLight()">Light</button>
+            <button class="nav-btn" onclick="resetView()">Reset</button>
+            <span class="coordinates" id="liveCoords">GLOBAL_AVE: --</span>
+        </nav>
+    </header>
+
+    <main class="strata-container">
+        <!-- Main Map Layer -->
+        <section class="vellum-sheet map-viewport">
+            <div class="map-header">
+                <div class="map-title">Choropleth Heatmap</div>
+                <div class="map-stats" id="mapStats">Rendering...</div>
+            </div>
+            <div id="map"></div>
+        </section>
+
+        <!-- Sidebar Layers -->
+        <aside class="sidebar">
+            <div class="vellum-sheet insight-card">
+                <div class="card-title">Primary Indicator</div>
+                <div class="big-number" id="globalAvg">--</div>
+                <div class="big-number-label">births per 1,000 people</div>
+                <p class="description">
+                    Current global average crude birth rate. Strata analysis reflects data from the World Bank demographic indicators.
+                </p>
+            </div>
+
+            <div class="vellum-sheet table-card">
+                <div id="avgBanner">
+                    <span>Displayed Average:</span>
+                    <span class="avg-value" id="avgValue">--</span>
+                    <span>/ 1,000</span>
+                </div>
+                <div class="card-title" style="padding: 15px 25px 0;">Country Rankings</div>
+                <div class="table-container">
+                    <table id="countryTable" class="display">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllCheckbox" title="Select All"></th>
+                                <th>Rank</th>
+                                <th>Country</th>
+                                <th>Rate</th>
+                                <th>Δ YoY</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="definition-card">
+                    <div class="definition-title">Crude Birth Rate (CBR)</div>
+                    <p class="definition-text">
+                        The number of live births per 1,000 people in a population per year.
+                    </p>
+                    <div class="formula">CBR = (Births / Population) × 1,000</div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <footer class="timeline-footer">
+        <section class="vellum-sheet timeline">
+            <button class="play-btn" id="playBtn" onclick="togglePlayback()" title="Play Animation">
+                <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+                <svg class="pause-icon" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                </svg>
+            </button>
+            <div class="year-mark" data-year="1960">1960</div>
+            <div class="year-mark" data-year="1980">1980</div>
+            <div class="year-mark" data-year="2000">2000</div>
+            <div class="year-mark" data-year="2020">2020</div>
+            <div class="slider-container">
+                <input type="range" id="yearSlider" min="1960" max="2023" step="1" value="1960">
+            </div>
+            <div class="year-display" id="yearLabel">1960</div>
+            <div class="year-mark active" data-year="2023">2023</div>
+            <div class="age-display" id="ageLabel"></div>
+        </section>
+    </footer>
+
+    <script>
+let table;
+let allData = [];
+let prevData = {};
+let selectedCountries = null;
+let focusedCountry = null;
+let currentYear = 1960;
+let currentViewData = [];
+let savedMapView = null;
+let checkboxSelectedCountries = new Set();
+let showSelectedOnly = false;
+let isPlaying = false;
+let animationFrameId = null;
+let yearDataCache = {};
+let animationStartTime = null;
+let animationFromYear = null;
+let animationToYear = null;
+let fromYearData = null;
+let toYearData = null;
+const YEAR_TRANSITION_DURATION = 265; // ms per year transition (3x faster)
+
+function fetchYear(year) {
+    const excludeList = [
+        'World', 'Arab World', 'OECD members', 'European Union', 
+        'Euro area', 'Sub-Saharan Africa', 'Latin America & Caribbean',
+        'East Asia & Pacific', 'Europe & Central Asia', 'Middle East & North Africa',
+        'North America', 'South Asia', 'Sub-Saharan Africa (excluding high income)',
+        'Small island developing states', 'Other small states', 'Least developed countries',
+        'Heavily indebted poor countries', 'Fragile and conflict affected situations',
+        'Central Europe and the Baltics', 'East Asia & Pacific (excluding high income)',
+        'Europe & Central Asia (excluding high income)', 'Latin America & Caribbean (excluding high income)',
+        'Middle East & North Africa (excluding high income)', 'North America (excluding high income)',
+        'Sub-Saharan Africa (IDA & IBRD countries)', 'Upper middle income', 'Lower middle income',
+        'Low & middle income', 'Low income', 'Lower middle income', 'Upper middle income',
+        'High income', 'IBRD only', 'IDA & IBRD total', 'IDA total', 'IDA blend', 'IDA only',
+        'Not classified', 'Post-demographic dividend', 'Pre-demographic dividend',
+        'Early-demographic dividend', 'Late-demographic dividend'
+    ];
+    
+    return fetch(`https://api.worldbank.org/v2/country/all/indicator/SP.DYN.CBRT.IN?format=json&per_page=400&date=${year}`)
+        .then(r => r.json())
+        .then(j => j[1].filter(d => {
+            const countryName = d.country.value;
+            return d.value !== null && !excludeList.includes(countryName);
+        })
+        .map(d => ({ country: d.country.value, value: d.value })));
+}
+
+function updateAverage(data) {
+    const avg = data.reduce((s, d) => s + d.value, 0) / data.length;
+    document.getElementById('avgValue').textContent = avg.toFixed(2);
+    document.getElementById('globalAvg').textContent = avg.toFixed(2);
+    document.getElementById('liveCoords').textContent = `GLOBAL_AVE: ${avg.toFixed(2)}`;
+    document.getElementById('mapStats').textContent = `${data.length} countries · ${currentYear}`;
+}
+
+function renderMap(data, preserveView = true) {
+    if (!data || data.length === 0) return;
+    
+    if (focusedCountry) {
+        const countryData = data.find(d => d.country === focusedCountry.country);
+        if (countryData) {
+            focusedCountry = { ...countryData };
+        }
+    }
+    
+    if (preserveView) {
+        const mapElement = document.getElementById('map');
+        if (mapElement && mapElement.layout && mapElement.layout.geo) {
+            const geo = mapElement.layout.geo;
+            if (geo.center) {
+                savedMapView = {
+                    center: { lon: geo.center.lon, lat: geo.center.lat },
+                    projection: geo.projection ? {
+                        rotation: geo.projection.rotation ? { ...geo.projection.rotation } : null
+                    } : null
+                };
+            }
+        }
+    }
+    
+    let mapData = data;
+    if (selectedCountries && selectedCountries.length > 0) {
+        mapData = data.filter(d => selectedCountries.includes(d.country));
+    }
+    
+    const baseTrace = {
+        type: 'choropleth',
+        locations: mapData.map(d => d.country),
+        locationmode: 'country names',
+        z: mapData.map(d => d.value),
+        customdata: mapData.map(d => [d.country, d.value]),
+        colorscale: [
+            [0, '#4facfe'],
+            [0.3, '#00f2fe'],
+            [0.5, '#f093fb'],
+            [0.7, '#f5576c'],
+            [1, '#ff453a']
+        ],
+        zmin: 5,
+        zmax: 50,
+        showscale: true,
+        colorbar: {
+            tickfont: { color: '#6b7280', family: 'JetBrains Mono', size: 10 },
+            title: { 
+                text: 'Births/1K', 
+                font: { color: '#6b7280', family: 'JetBrains Mono', size: 10 },
+                side: 'right'
+            },
+            thickness: 8,
+            len: 0.5,
+            bgcolor: 'transparent',
+            borderwidth: 0,
+            xanchor: 'left',
+            x: 1.01
+        },
+        marker: {
+            line: { width: 0.3, color: 'rgba(255,255,255,0.1)' }
+        },
+        hovertemplate: '<b style="font-family: Inter">%{location}</b><br><span style="font-family: JetBrains Mono">%{z:.1f}</span> births / 1,000<extra></extra>'
+    };
+
+    const traces = [baseTrace];
+    
+    if (!showSelectedOnly && checkboxSelectedCountries.size > 0) {
+        const selectedData = data.filter(d => checkboxSelectedCountries.has(d.country));
+        selectedData.forEach(countryData => {
+            if (selectedCountries && selectedCountries.includes(countryData.country)) return;
+            
+            const highlightTrace = {
+                type: 'choropleth',
+                locations: [countryData.country],
+                locationmode: 'country names',
+                z: [countryData.value],
+                colorscale: [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0)']],
+                autocolorscale: false,
+                zmin: 5,
+                zmax: 50,
+                showscale: false,
+                marker: { line: { width: 2, color: '#4facfe' } },
+                hoverinfo: 'skip'
+            };
+            traces.push(highlightTrace);
+        });
+    }
+    
+    if (focusedCountry) {
+        const highlightTrace = {
+            type: 'choropleth',
+            locations: [focusedCountry.country],
+            locationmode: 'country names',
+            z: [focusedCountry.value],
+            colorscale: [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0)']],
+            autocolorscale: false,
+            zmin: 5,
+            zmax: 50,
+            showscale: false,
+            marker: { line: { width: 3, color: '#fff' } },
+            hoverinfo: 'skip'
+        };
+        traces.push(highlightTrace);
+    }
+    
+    const geoConfig = {
+        projection: { type: 'natural earth' },
+        bgcolor: 'rgba(0,0,0,0)',
+        landcolor: '#1a1c22',
+        oceancolor: 'rgba(0,0,0,0)',
+        lakecolor: 'rgba(0,0,0,0)',
+        showocean: true,
+        showlakes: true,
+        showcountries: true,
+        showland: true,
+        countrycolor: 'rgba(255,255,255,0.08)',
+        countrywidth: 0.3
+    };
+    
+    if (preserveView && savedMapView && savedMapView.center) {
+        geoConfig.center = savedMapView.center;
+    }
+    if (preserveView && savedMapView && savedMapView.projection && savedMapView.projection.rotation) {
+        geoConfig.projection.rotation = savedMapView.projection.rotation;
+    }
+    
+    Plotly.react('map', traces, {
+        geo: geoConfig,
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        margin: { t: 10, l: 0, r: 0, b: 0 },
+        dragmode: 'select',
+        font: { family: 'Inter, sans-serif' }
+    }).then(() => {
+        if (preserveView && savedMapView) {
+            const relayoutUpdate = {};
+            if (savedMapView.center) {
+                relayoutUpdate['geo.center.lon'] = savedMapView.center.lon;
+                relayoutUpdate['geo.center.lat'] = savedMapView.center.lat;
+            }
+            if (savedMapView.projection && savedMapView.projection.rotation) {
+                if (savedMapView.projection.rotation.lon !== undefined) {
+                    relayoutUpdate['geo.projection.rotation.lon'] = savedMapView.projection.rotation.lon;
+                }
+                if (savedMapView.projection.rotation.lat !== undefined) {
+                    relayoutUpdate['geo.projection.rotation.lat'] = savedMapView.projection.rotation.lat;
+                }
+            }
+            if (Object.keys(relayoutUpdate).length > 0) {
+                Plotly.relayout('map', relayoutUpdate);
+            }
+        }
+        
+        const mapElement = document.getElementById('map');
+        if (mapElement) {
+            mapElement.removeAllListeners('plotly_selected');
+            mapElement.removeAllListeners('plotly_deselect');
+            
+            mapElement.on('plotly_selected', function(e) {
+                if (!e || !e.points || e.points.length === 0) {
+                    selectedCountries = null;
+                    renderMap(allData);
+                    loadYear(currentYear);
+                    return;
+                }
+                selectedCountries = [...new Set(e.points.map(p => {
+                    if (p.location) return p.location;
+                    if (Array.isArray(p.customdata) && p.customdata.length > 0) return p.customdata[0];
+                    if (p.customdata) return p.customdata;
+                    return null;
+                }).filter(c => c !== null))];
+                
+                if (selectedCountries.length === 0) {
+                    selectedCountries = null;
+                    renderMap(allData);
+                    loadYear(currentYear);
+                    return;
+                }
+                
+                const selectedDataForMap = allData.filter(d => selectedCountries.includes(d.country));
+                renderMap(selectedDataForMap);
+                loadYear(currentYear);
+            });
+
+            mapElement.on('plotly_deselect', function() {
+                selectedCountries = null;
+                if (showSelectedOnly && checkboxSelectedCountries.size > 0) {
+                    const selectedList = Array.from(checkboxSelectedCountries);
+                    const selectedDataForMap = allData.filter(d => selectedList.includes(d.country));
+                    renderMap(selectedDataForMap);
+                } else {
+                    renderMap(allData);
+                }
+                loadYear(currentYear);
+            });
+        }
+    });
+    
+    document.getElementById('map').on('plotly_relayout', (eventData) => {
+        if (eventData && eventData['geo.center.lon'] !== undefined) {
+            savedMapView = {
+                center: {
+                    lon: eventData['geo.center.lon'],
+                    lat: eventData['geo.center.lat']
+                }
+            };
+        }
+        if (eventData && eventData['geo.projection.rotation.lon'] !== undefined) {
+            if (!savedMapView) savedMapView = {};
+            if (!savedMapView.projection) savedMapView.projection = {};
+            if (!savedMapView.projection.rotation) savedMapView.projection.rotation = {};
+            savedMapView.projection.rotation.lon = eventData['geo.projection.rotation.lon'];
+            savedMapView.projection.rotation.lat = eventData['geo.projection.rotation.lat'];
+        }
+    });
+}
+
+function loadYear(year) {
+    const prevYear = year > 1960 ? year - 1 : year;
+    return Promise.all([fetchYear(year), fetchYear(prevYear)]).then(([curr, prev]) => {
+        const validCurr = curr.filter(d => d.value !== null && d.value !== undefined);
+        const validPrev = prev.filter(d => d.value !== null && d.value !== undefined);
+        
+        prevData = Object.fromEntries(validPrev.map(d => [d.country, d.value]));
+        allData = validCurr.map(d => ({
+            country: d.country,
+            value: d.value,
+            delta: prevData[d.country] ? d.value - prevData[d.country] : null
+        })).filter(d => d.value !== null && d.value !== undefined);
+
+        let viewData = selectedCountries
+            ? allData.filter(d => selectedCountries.includes(d.country))
+            : allData;
+
+        if (showSelectedOnly && checkboxSelectedCountries.size > 0) {
+            const selectedList = Array.from(checkboxSelectedCountries);
+            viewData = allData.filter(d => selectedList.includes(d.country));
+            if (selectedCountries && selectedCountries.length > 0) {
+                const combined = new Set([...selectedList, ...selectedCountries]);
+                viewData = allData.filter(d => combined.has(d.country));
+            }
+        }
+
+        viewData.sort((a, b) => b.value - a.value);
+        viewData.forEach((d, i) => d.rank = i + 1);
+        
+        currentViewData = viewData;
+        updateAverage(viewData);
+
+        document.getElementById('yearLabel').textContent = year;
+        
+        const currentYearDate = new Date().getFullYear();
+        const age = currentYearDate - year;
+        document.getElementById('ageLabel').textContent = `Age as of ${currentYearDate}: ${age}`;
+
+        // Update year marks
+        document.querySelectorAll('.year-mark').forEach(mark => {
+            mark.classList.remove('active');
+            if (parseInt(mark.dataset.year) === year) {
+                mark.classList.add('active');
+            }
+        });
+
+        if (!table) {
+            table = $('#countryTable').DataTable({
+                data: viewData,
+                columns: [
+                    { 
+                        data: null,
+                        orderable: false,
+                        defaultContent: '',
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                const isChecked = checkboxSelectedCountries.has(row.country) ? 'checked' : '';
+                                return `<input type="checkbox" class="country-checkbox" data-country="${row.country}" ${isChecked}>`;
+                            }
+                            return '';
+                        }
+                    },
+                    { data: 'rank' },
+                    { data: 'country' },
+                    { data: 'value', render: d => d.toFixed(1) },
+                    { 
+                        data: 'delta', 
+                        render: function(d) {
+                            if (d === null) return '—';
+                            const sign = d > 0 ? '+' : '';
+                            const cls = d > 0 ? 'delta-positive' : 'delta-negative';
+                            return `<span class="${cls}">${sign}${d.toFixed(2)}</span>`;
+                        }
+                    }
+                ],
+                order: [[3, 'desc']],
+                paging: false,
+                info: false,
+                dom: '<"top"f>t'
+            });
+
+            setTimeout(addSelectedOnlyButton, 200);
+
+            $('#selectAllCheckbox').on('change', function() {
+                const isChecked = $(this).prop('checked');
+                $('.country-checkbox').prop('checked', isChecked);
+                if (isChecked) {
+                    viewData.forEach(d => checkboxSelectedCountries.add(d.country));
+                } else {
+                    checkboxSelectedCountries.clear();
+                }
+                if (showSelectedOnly && checkboxSelectedCountries.size > 0) {
+                    const selectedList = Array.from(checkboxSelectedCountries);
+                    const selectedDataForMap = allData.filter(d => selectedList.includes(d.country));
+                    renderMap(selectedDataForMap);
+                } else {
+                    renderMap(allData);
+                }
+            });
+
+            $('#countryTable tbody').on('change', '.country-checkbox', function(e) {
+                e.stopPropagation();
+                const country = $(this).data('country');
+                if ($(this).prop('checked')) {
+                    checkboxSelectedCountries.add(country);
+                } else {
+                    checkboxSelectedCountries.delete(country);
+                    $('#selectAllCheckbox').prop('checked', false);
+                }
+                if (showSelectedOnly && checkboxSelectedCountries.size > 0) {
+                    const selectedList = Array.from(checkboxSelectedCountries);
+                    const selectedDataForMap = allData.filter(d => selectedList.includes(d.country));
+                    renderMap(selectedDataForMap);
+                } else {
+                    renderMap(allData);
+                }
+            });
+
+            $('#countryTable tbody').on('click', 'tr', function(e) {
+                if ($(e.target).is('input[type="checkbox"]')) return;
+                const rowData = table.row(this).data();
+                if (!rowData) return;
+
+                if (focusedCountry && focusedCountry.country === rowData.country) {
+                    focusedCountry = null;
+                    $('tr').removeClass('selectedRow');
+                } else {
+                    focusedCountry = { ...rowData };
+                    $('tr').removeClass('selectedRow');
+                    $(this).addClass('selectedRow');
+                }
+                if (showSelectedOnly && checkboxSelectedCountries.size > 0) {
+                    const selectedList = Array.from(checkboxSelectedCountries);
+                    const selectedDataForMap = allData.filter(d => selectedList.includes(d.country));
+                    renderMap(selectedDataForMap);
+                } else {
+                    renderMap(allData);
+                }
+            });
+
+        } else {
+            table.clear().rows.add(viewData).draw();
+            setTimeout(() => {
+                $('.country-checkbox').each(function() {
+                    const country = $(this).data('country');
+                    $(this).prop('checked', checkboxSelectedCountries.has(country));
+                });
+                const allChecked = viewData.length > 0 && viewData.every(d => checkboxSelectedCountries.has(d.country));
+                $('#selectAllCheckbox').prop('checked', allChecked);
+                addSelectedOnlyButton();
+            }, 100);
+        }
+
+        if (selectedCountries && selectedCountries.length > 0) {
+            const selectedDataForMap = allData.filter(d => selectedCountries.includes(d.country));
+            renderMap(selectedDataForMap);
+        } else if (showSelectedOnly && checkboxSelectedCountries.size > 0) {
+            const selectedList = Array.from(checkboxSelectedCountries);
+            const selectedDataForMap = allData.filter(d => selectedList.includes(d.country));
+            renderMap(selectedDataForMap);
+        } else {
+            renderMap(allData);
+        }
+    });
+}
+
+function toggleSelectedOnly() {
+    showSelectedOnly = !showSelectedOnly;
+    const btn = document.getElementById('selectedOnlyBtn');
+    if (btn) {
+        if (showSelectedOnly) {
+            btn.classList.add('active');
+            btn.textContent = 'Show All';
+        } else {
+            btn.classList.remove('active');
+            btn.textContent = 'Selected Only';
+        }
+    }
+    loadYear(currentYear);
+}
+
+function addSelectedOnlyButton() {
+    const filterElement = $('.dataTables_filter');
+    if (filterElement.length && !$('#selectedOnlyBtn').length) {
+        filterElement.append('<button id="selectedOnlyBtn" class="filter-selected-btn" onclick="toggleSelectedOnly()">Selected Only</button>');
+    }
+}
+
+$(document).ready(function() {
+    loadYear(currentYear);
+    
+    $('#yearSlider').on('input change', function() {
+        const newYear = +this.value;
+        currentYear = newYear;
+        focusedCountry = null;
+        $('tr').removeClass('selectedRow');
+        loadYear(currentYear);
+    });
+
+    // Year mark click handlers
+    document.querySelectorAll('.year-mark').forEach(mark => {
+        mark.addEventListener('click', function() {
+            const year = parseInt(this.dataset.year);
+            if (year) {
+                currentYear = year;
+                document.getElementById('yearSlider').value = year;
+                focusedCountry = null;
+                $('tr').removeClass('selectedRow');
+                loadYear(currentYear);
+            }
+        });
+    });
+});
+
+function setDark() {
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('.nav-btn:nth-child(1)').classList.add('active');
+    document.body.style.setProperty('--bg', '#0a0b0d');
+    document.body.style.setProperty('--vellum-white', 'rgba(245, 245, 240, 0.06)');
+    document.body.style.setProperty('--text-primary', '#e8e8e8');
+    document.body.style.setProperty('--text-secondary', '#6b7280');
+    renderMap(selectedCountries ? allData.filter(d => selectedCountries.includes(d.country)) : allData);
+}
+
+function setLight() {
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('.nav-btn:nth-child(2)').classList.add('active');
+    document.body.style.setProperty('--bg', '#f8f9fa');
+    document.body.style.setProperty('--vellum-white', 'rgba(0, 0, 0, 0.04)');
+    document.body.style.setProperty('--text-primary', '#1a1a1a');
+    document.body.style.setProperty('--text-secondary', '#4b5563');
+    if (showSelectedOnly && checkboxSelectedCountries.size > 0) {
+        const selectedList = Array.from(checkboxSelectedCountries);
+        const selectedDataForMap = allData.filter(d => selectedList.includes(d.country));
+        renderMap(selectedDataForMap);
+    } else {
+        renderMap(selectedCountries ? allData.filter(d => selectedCountries.includes(d.country)) : allData);
+    }
+}
+
+function resetView() {
+    selectedCountries = null;
+    focusedCountry = null;
+    savedMapView = null;
+    checkboxSelectedCountries.clear();
+    showSelectedOnly = false;
+    
+    const btn = document.getElementById('selectedOnlyBtn');
+    if (btn) {
+        btn.classList.remove('active');
+        btn.textContent = 'Selected Only';
+    }
+    
+    $('tr').removeClass('selectedRow');
+    $('.country-checkbox').prop('checked', false);
+    $('#selectAllCheckbox').prop('checked', false);
+    
+    const mapElement = document.getElementById('map');
+    if (mapElement) {
+        const event = new Event('plotly_deselect');
+        mapElement.dispatchEvent(event);
+    }
+    
+    loadYear(currentYear).then(() => {
+        Plotly.relayout('map', {
+            'geo.center.lon': 0,
+            'geo.center.lat': 0,
+            'geo.projection.rotation.lon': 0,
+            'geo.projection.rotation.lat': 0
+        });
+    });
+}
+
+// Subtle parallax effect
+document.addEventListener('mousemove', (e) => {
+    const sheets = document.querySelectorAll('.vellum-sheet');
+    const x = (window.innerWidth / 2 - e.pageX) / 80;
+    const y = (window.innerHeight / 2 - e.pageY) / 80;
+
+    sheets.forEach((sheet, index) => {
+        const depth = (index + 1) * 0.3;
+        sheet.style.transform = `translate3d(${x * depth}px, ${y * depth}px, 0)`;
+    });
+});
+
+// Playback Animation
+function togglePlayback() {
+    if (isPlaying) {
+        stopPlayback();
+    } else {
+        startPlayback();
+    }
+}
+
+async function startPlayback() {
+    isPlaying = true;
+    const btn = document.getElementById('playBtn');
+    btn.classList.add('playing');
+    btn.querySelector('.play-icon').style.display = 'none';
+    btn.querySelector('.pause-icon').style.display = 'block';
+    
+    // Mark slider as animating
+    document.getElementById('yearSlider').classList.add('animating');
+    
+    // Ensure we have initial data loaded
+    if (allData.length === 0) {
+        await loadYear(currentYear);
+    }
+    
+    // Pre-fetch upcoming years
+    await prefetchYears();
+    
+    // Start the smooth animation loop
+    startYearTransition(currentYear, currentYear + 1);
+}
+
+function stopPlayback() {
+    isPlaying = false;
+    const btn = document.getElementById('playBtn');
+    btn.classList.remove('playing');
+    btn.querySelector('.play-icon').style.display = 'block';
+    btn.querySelector('.pause-icon').style.display = 'none';
+    
+    // Remove animating class from slider
+    document.getElementById('yearSlider').classList.remove('animating');
+    
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+    
+    // Snap to nearest year
+    const nearestYear = Math.round(currentYear);
+    currentYear = nearestYear;
+    document.getElementById('yearSlider').value = nearestYear;
+    loadYear(nearestYear);
+}
+
+async function prefetchYears() {
+    const yearsToFetch = [];
+    const baseYear = Math.floor(currentYear);
+    for (let y = baseYear; y <= Math.min(baseYear + 10, 2023); y++) {
+        if (!yearDataCache[y]) {
+            yearsToFetch.push(y);
+        }
+    }
+    
+    await Promise.all(yearsToFetch.map(async (year) => {
+        const data = await fetchYear(year);
+        yearDataCache[year] = data;
+    }));
+}
+
+async function startYearTransition(fromYear, toYear) {
+    if (!isPlaying) return;
+    
+    // Handle loop
+    if (toYear > 2023) {
+        fromYear = 2023;
+        toYear = 1960;
+    }
+    
+    animationFromYear = fromYear;
+    animationToYear = toYear;
+    
+    // Get data for both years
+    if (!yearDataCache[fromYear]) {
+        yearDataCache[fromYear] = await fetchYear(fromYear);
+    }
+    if (!yearDataCache[toYear]) {
+        yearDataCache[toYear] = await fetchYear(toYear);
+    }
+    
+    fromYearData = yearDataCache[fromYear];
+    toYearData = yearDataCache[toYear];
+    
+    // Pre-fetch next years in background
+    prefetchYears();
+    
+    animationStartTime = performance.now();
+    animationFrameId = requestAnimationFrame(animateFrame);
+}
+
+function animateFrame(timestamp) {
+    if (!isPlaying) return;
+    
+    const elapsed = timestamp - animationStartTime;
+    let progress = Math.min(elapsed / YEAR_TRANSITION_DURATION, 1);
+    
+    // Easing function for smoother animation (ease-in-out)
+    progress = progress < 0.5 
+        ? 2 * progress * progress 
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    
+    // Calculate interpolated year for slider
+    let interpolatedYear;
+    if (animationToYear < animationFromYear) {
+        // Looping back to 1960
+        interpolatedYear = animationFromYear + progress * (2024 - animationFromYear);
+        if (interpolatedYear >= 2024) {
+            interpolatedYear = 1960;
+        }
+    } else {
+        interpolatedYear = animationFromYear + progress * (animationToYear - animationFromYear);
+    }
+    
+    // Update slider smoothly
+    const sliderValue = animationToYear < animationFromYear 
+        ? (progress < 1 ? animationFromYear : 1960)
+        : interpolatedYear;
+    document.getElementById('yearSlider').value = sliderValue;
+    
+    // Update year display
+    const displayYear = Math.round(interpolatedYear > 2023 ? 1960 : interpolatedYear);
+    document.getElementById('yearLabel').textContent = displayYear;
+    
+    // Update age display
+    const currentYearDate = new Date().getFullYear();
+    const age = currentYearDate - displayYear;
+    document.getElementById('ageLabel').textContent = `Age as of ${currentYearDate}: ${age}`;
+    
+    // Interpolate map data and update colors
+    updateInterpolatedMap(progress);
+    
+    if (progress >= 1) {
+        // Transition complete - update to final state
+        currentYear = animationToYear < animationFromYear ? 1960 : animationToYear;
+        
+        // Update year marks
+        document.querySelectorAll('.year-mark').forEach(mark => {
+            mark.classList.remove('active');
+            if (parseInt(mark.dataset.year) === currentYear) {
+                mark.classList.add('active');
+            }
+        });
+        
+        // Load full data for the completed year (updates table, etc.)
+        loadYearSilent(currentYear).then(() => {
+            // Start next transition
+            if (isPlaying) {
+                const nextYear = currentYear + 1;
+                startYearTransition(currentYear, nextYear);
+            }
+        });
+    } else {
+        // Continue animation
+        animationFrameId = requestAnimationFrame(animateFrame);
+    }
+}
+
+function updateInterpolatedMap(progress) {
+    if (!fromYearData || !toYearData) return;
+    
+    // Create a map of country -> value for both years
+    const fromMap = new Map(fromYearData.map(d => [d.country, d.value]));
+    const toMap = new Map(toYearData.map(d => [d.country, d.value]));
+    
+    // Get all countries from both datasets
+    const allCountries = new Set([...fromMap.keys(), ...toMap.keys()]);
+    
+    // Interpolate values
+    const interpolatedData = [];
+    allCountries.forEach(country => {
+        const fromVal = fromMap.get(country);
+        const toVal = toMap.get(country);
+        
+        if (fromVal !== undefined && toVal !== undefined) {
+            // Both years have data - interpolate
+            const interpolatedValue = fromVal + progress * (toVal - fromVal);
+            interpolatedData.push({ country, value: interpolatedValue });
+        } else if (fromVal !== undefined) {
+            // Only from year has data
+            interpolatedData.push({ country, value: fromVal });
+        } else if (toVal !== undefined) {
+            // Only to year has data
+            interpolatedData.push({ country, value: toVal });
+        }
+    });
+    
+    // Apply filters
+    let mapData = interpolatedData;
+    if (selectedCountries && selectedCountries.length > 0) {
+        mapData = interpolatedData.filter(d => selectedCountries.includes(d.country));
+    } else if (showSelectedOnly && checkboxSelectedCountries.size > 0) {
+        const selectedList = Array.from(checkboxSelectedCountries);
+        mapData = interpolatedData.filter(d => selectedList.includes(d.country));
+    }
+    
+    // Update the map with interpolated values
+    Plotly.restyle('map', {
+        z: [mapData.map(d => d.value)],
+        locations: [mapData.map(d => d.country)],
+        customdata: [mapData.map(d => [d.country, d.value])]
+    }, [0]);
+    
+    // Update average display with interpolated values
+    if (mapData.length > 0) {
+        const avg = mapData.reduce((s, d) => s + d.value, 0) / mapData.length;
+        document.getElementById('avgValue').textContent = avg.toFixed(2);
+        document.getElementById('globalAvg').textContent = avg.toFixed(2);
+        document.getElementById('liveCoords').textContent = `GLOBAL_AVE: ${avg.toFixed(2)}`;
+        document.getElementById('mapStats').textContent = `${mapData.length} countries · transitioning`;
+    }
+}
+
+async function loadYearSilent(year) {
+    // Load year data without triggering map render (used after animation completes)
+    const prevYear = year > 1960 ? year - 1 : year;
+    
+    let curr = yearDataCache[year];
+    if (!curr) {
+        curr = await fetchYear(year);
+        yearDataCache[year] = curr;
+    }
+    
+    let prev = yearDataCache[prevYear];
+    if (!prev) {
+        prev = await fetchYear(prevYear);
+        yearDataCache[prevYear] = prev;
+    }
+    
+    const validCurr = curr.filter(d => d.value !== null && d.value !== undefined);
+    const validPrev = prev.filter(d => d.value !== null && d.value !== undefined);
+    
+    prevData = Object.fromEntries(validPrev.map(d => [d.country, d.value]));
+    allData = validCurr.map(d => ({
+        country: d.country,
+        value: d.value,
+        delta: prevData[d.country] ? d.value - prevData[d.country] : null
+    })).filter(d => d.value !== null && d.value !== undefined);
+
+    let viewData = selectedCountries
+        ? allData.filter(d => selectedCountries.includes(d.country))
+        : allData;
+
+    if (showSelectedOnly && checkboxSelectedCountries.size > 0) {
+        const selectedList = Array.from(checkboxSelectedCountries);
+        viewData = allData.filter(d => selectedList.includes(d.country));
+    }
+
+    viewData.sort((a, b) => b.value - a.value);
+    viewData.forEach((d, i) => d.rank = i + 1);
+    
+    currentViewData = viewData;
+    updateAverage(viewData);
+    document.getElementById('mapStats').textContent = `${viewData.length} countries · ${year}`;
+
+    // Update table
+    if (table) {
+        table.clear().rows.add(viewData).draw();
+        setTimeout(() => {
+            $('.country-checkbox').each(function() {
+                const country = $(this).data('country');
+                $(this).prop('checked', checkboxSelectedCountries.has(country));
+            });
+        }, 50);
+    }
+}
+    </script>
+</body>
+</html>
